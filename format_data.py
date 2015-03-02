@@ -21,7 +21,7 @@ with open(path, 'r') as f:
             ct = ct+1
             if ct > max:
                 break
-            rt = ',\''+str(ct)+'x\' :\" '
+            rt = ',\''+str(ct)+'x\' :\"'
             wrt_to_js(rt)
         elif len(line)== 33:
             line = line[0:-1]
