@@ -2,129 +2,152 @@
 var b = document.getElementById("b");
 var c = document.getElementById("c");
 var ctx = c.getContext('2d');
+var ic = document.getElementById("ic"); //for drawing input
+var ictx = ic.getContext('2d');
 
-var numPts = 500;
-var goal_w = $V([0,.5, -1]);
+var numPts = Object.keys(raw).length;
+var row_sz = raw['rowsz']; //pixels in row of image
+var inn = raw['0x'].length; //number of pixels in image
+var outn = 10; //number of outputs
+var layer_size = [25, 15]; //number of nuerons in each hidden layer
+var L = layer_size.length; //number of hidden layers
+
+console.log('inn',inn);
+
+var xv = []; //value of neurons
+var init_xv = function(){
+	xv.push(Matrix.Random(inn,1));
+	_.each(_.range(L), function(i){
+		xv.push(Matrix.Random(layer_size[i],1));
+		});
+	xv.push(Matrix.Random(outn,1));
+	
+}
+init_xv();
+console.log('xv',xv);
+
+var w = [];
+//matrix of weights between each layers of neurons
+var init_w = function(){
+	w.push([]);//index should start at 1
+	var inp = Matrix.Random(inn, layer_size[0]-1);
+	w.push(inp);
+	var hidden = _.each(_.range(L-1), function(i) {
+		w.push(Matrix.Random(layer_size[i], layer_size[i+1]-1));
+	});
+	var op = Matrix.Random(layer_size[L-1], outn);
+	w.push(op);
+}
+
+init_w();
+console.log('w',w);
+
+var set_inputs = function(numstr){
+	_.each(_.range(numstr.length), function(i) {
+		xv[0].elements[i][0] = numstr[i];
+	});
+}
+
+var forward = function(ind){
+	var numstr = raw[ind + 'x'];
+	set_inputs(numstr);
+	_.each(_.range(L+2), function(l){ //each layer
+		if (l==0) return;
+		console.log(l, w[l].transpose().dimensions(), xv[l-1].dimensions());
+		s = w[l].transpose().multiply(xv[l-1]);
+		theta = s.map( function(x, i, j) {
+			return Math.tanh(x);
+		});
+		//console.log(s.inspect());
+		if(l==L+1){
+			xv[l] = theta.dup();
+		}else {
+			xv[l] = $M([[1].concat(theta.transpose().elements[0])]).transpose(); //add constant neuron
+		}
+		
+	});
+	return xv[xv.length-1];
+}
+var op = forward(0);
+console.log(op.inspect(), op.dimensions());
+
+var format_output = function(yn) {
+	var res = Matrix.Zero(outn, 1);
+	res.elements[0][yn] = 1;
+	return res;
+}
+
+var del = [];
+
+//del[a][b] - a=layer;b=neuron in layer, (a starts at 1), del[a] is a matrix as well 
+var init_del = function(){
+	del.push([]);
+	_.each(_.range(L), function(i){
+		del.push(Matrix.Random(layer_size[i],1));
+		});
+	del.push(Matrix.Random(outn,1));
+}
+init_del();
+
+var backprop = function(yn){
+	var y = format_output(yn); //given in form of network outputs
+	
+	//set deltas
+	//final l = L
+	_.each(_.range(outn), function(j) {
+		del[L+1].elements[j] = 2 * (xv[L+1].e(j) - y[j]) * (1 - Math.pow(xv[L+1].e(j), 2));
+	});
+	_.each(_.range(L), function(sl){
+		var l = L-sl; //moving backwards
+		for (var i = 1; i < layer_size[l]; i++){ //first neuron is constant
+			var sum = 0;
+			for (var j = 0; j < layer_size[l+1]; j++){
+				sum += w[l+1].e(i,j) * del[l+1].del(j);
+			}
+			del[l].elements[i] = (1 - Math.pow(xv[l].e(i), 2)) * sum;
+		}
+	}
+	
+}
 
 var xyToScreen = function(pt){
 	return [pt[0] + c.width/2.0, -pt[1] + c.height/2.0];
 }
 
-var generatePoints = function(num){
-	var np = []
-	for(var i = 0; i < num; i++){
-		np.push[Math.random()*c.width];
-		var xv = Math.random()*c.width;
+var drawNumber = function(ind){
+	var numstr = raw[ind + 'x'];
+	//console.log(numstr);
+	var imgData = ictx.createImageData(row_sz,row_sz); // only do this once per page
+	for (var i=0;i<imgData.data.length;i+=4) {
+		if (numstr[i/4]==1){
+			imgData.data[i+0]=255;
+			imgData.data[i+1]=255;
+			imgData.data[i+2]=255;
+			imgData.data[i+3]=255;
+		}else if (numstr[i/4]==0){
+			imgData.data[i+0]=0;
+			imgData.data[i+1]=0;
+			imgData.data[i+2]=0;
+			imgData.data[i+3]=255;
+		}
 	}
-}
-var xp = _.map(_.range(numPts),
-	function(ind) {
-		return $V([1, Math.random()*c.width - c.width/2, Math.random()*c.height - c.height/2]);
-	});
-var yp = _.map(xp,
-	function(pt){
-		if(goal_w.dot(pt)<0){
-			return -1;
-		}
-		return 1;
-	});
-
-var solve = function(x, y){
-	var xl = _.map(x, 
-		function(pt){
-			return pt.elements; 
-		});
-	var xm = $M(xl);
-	var ym = $V(y);
-	var pseudoInv = (xm.transpose().multiply(xm)).inv().multiply(xm.transpose());
-	var ow = pseudoInv.multiply(ym);
-	return ow;
-}
-	
-var selectPoint = function(ind){
-	if (ind==-1) {return;}
-	var vpos = [xp[ind].elements[1], xp[ind].elements[2]];
-	var pos = xyToScreen(vpos);
-	//console.log(xp[ind].elements);
-	var rad = 7;
-	ctx.beginPath();
-	ctx.arc(pos[0], pos[1], rad, 0, 2 * Math.PI, false);
-	ctx.fillStyle = 'black';
-	ctx.fill();
-}
-	
-//x - list of vetors
-//y - list of {1,-1}
-var stepPLA = function(w, x, y){
-	var alph = 0.5; //how intense a point has an effect
-	var sz = x.length;
-	var ind = Math.floor(Math.random()*sz);
-	var nw = w.add(x[ind].x(y[ind]*alph));
-	return [nw, ind];
-}
-	
-var drawPLA = function(w, col) {
-	var wa = w.elements;
-	var inter = -wa[0]/wa[2];
-	var slp = -wa[1]/wa[2];
-	
-	var p1 = xyToScreen([-c.width, -c.width*slp + inter]);
-	var p2 = xyToScreen([c.width, c.width*slp + inter]);
-	ctx.beginPath();
-	ctx.moveTo(p1[0], p1[1]);
-	ctx.lineTo(p2[0], p2[1]);
-	ctx.strokeStyle = col;
-	ctx.stroke();
-}
-	
-var drawPoints = function() {
-	//console.log('dr');
-	_.each(_.range(numPts), 
-	function(ind) {
-		var vpos = [xp[ind].elements[1], xp[ind].elements[2]];
-		var pos = xyToScreen(vpos);
-		//console.log(xp[ind].elements);
-		var rad = 5;
-		
-		ctx.beginPath();
-		ctx.arc(pos[0], pos[1], rad, 0, 2 * Math.PI, false);
-		if(yp[ind] > 0){
-			ctx.fillStyle = 'blue';
-		}else{
-			ctx.fillStyle = 'red';
-		}
-		ctx.fill();
-	});
+	ctx.putImageData(imgData,10,10);
 }
 
-var guess_w = $V([0, 1, -1]);
-var solved_w = solve(xp,yp);
 var auto = false;
-var sel_ind = -1;
-
 b.onclick = function() { auto = !auto };
 
 var update = function() {
 	ctx.fillStyle="#ffffff";
 	ctx.fillRect(0,0,c.width,c.height);
-	drawPoints();
-	drawPLA(goal_w, 'green');
-	drawPLA(solved_w, 'black');
-	drawPLA(guess_w, 'brown');
-	if (auto) {
-		guess_w = stepPLA(guess_w, xp, yp)[0];
-	}else{
-		selectPoint(sel_ind);
-	}
+	drawNumber(4);
 	window.requestAnimationFrame(update);
 }
 
 var clicked = function(e) {
 	var x = e.offsetX-300;
 	var y = -e.offsetY+300;
-	var rt = stepPLA(guess_w, xp, yp)
-	guess_w = rt[0];
-	sel_ind = rt[1];
+	
 };
 
 c.addEventListener("click",clicked);
