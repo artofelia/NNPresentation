@@ -9,18 +9,21 @@ var numPts = (Object.keys(raw).length-1)/2;
 var row_sz = raw['rowsz']; //pixels in row of image
 var inn = raw['0x'].length; //number of pixels in image
 var outn = 1; //number of outputs
-var layer_size = [3, 3]; //number of nuerons in each hidden layer
+var layer_size = [3,3]; //number of nuerons in each hidden layer
 var L = layer_size.length; //number of hidden layers
+var my_guess = [];
+var iter = 0;
 
 //console.log('inn',inn);
 
 var xv = []; //value of neurons
 var init_xv = function(){
-	xv.push(Matrix.Random(inn+1,1)); //constant in first row
+	xv.push(Matrix.Zero(inn+1,1)); //constant in first row
 	_.each(_.range(L), function(i){
-		xv.push(Matrix.Random(layer_size[i],1));
+		xv.push(Matrix.Zero(layer_size[i],1));
 		});
-	xv.push(Matrix.Random(outn,1));
+	xv.push(Matrix.Zero(outn,1));
+	my_guess.push(xv[L+1]);
 }
 
 var w = [];
@@ -36,14 +39,24 @@ var init_w = function(){
 	w.push(op);
 }
 
+var init_w_xor = function() {
+	w.push([]);
+	var M = $M([[-1.5, -1.5],
+				[1, -1],
+				[-1, 1]]);
+	w.push(M);
+	M = $M([[1.5],[1],[1]]);
+	w.push(M);
+}
+
 var del = [];
 //del[a][b] - a=layer;b=neuron in layer, (a starts at 1), del[a] is a matrix as well 
 var init_del = function(){
 	del.push([]);
 	_.each(_.range(L), function(i){
-		del.push(Matrix.Random(layer_size[i]-1,1));
+		del.push(Matrix.Zero(layer_size[i]-1,1));
 		});
-	del.push(Matrix.Random(outn,1));
+	del.push(Matrix.Zero(outn,1));
 }
 
 var init_all = function(){
@@ -53,20 +66,27 @@ var init_all = function(){
 	init_w();
 	//console.log('w',w);
 	init_del();
+	setNodePos();
 }
 
-var set_inputs = function(numstr){
+var set_inputs = function(numstr, type){
 	xv[0].elements[0][0] = 1;
+	if(type=='digit'){
 	_.each(_.range(numstr.length), function(i) {
 		xv[0].elements[i+1][0] = parseInt(numstr[i]);
 	});
+	}else if(type=='xor'){
+	_.each(_.range(numstr.length), function(i) {
+		xv[0].elements[i+1][0] = parseInt(numstr[i])*2-1;
+	});
+	}
 	//console.log('setin', xv[0].transpose().inspect());
 }
 
 var forward = function(ind){
 	var numstr = raw[ind + 'x'];
 	
-	set_inputs(numstr);
+	set_inputs(numstr, 'xor');
 	_.each(_.range(L+2), function(l){ //each layer
 		if (l==0) return;
 		//console.log(l, w[l].transpose().dimensions(), xv[l-1].dimensions());
@@ -82,7 +102,7 @@ var forward = function(ind){
 		}
 		
 	});
-	return xv[xv.length-1];
+	return xv[L+1];
 }
 
 var format_output = function(yn, type) {
@@ -95,41 +115,62 @@ var format_output = function(yn, type) {
 	return res;
 }
 
-var lrate = 0.1;//learning rate
+var lrate = 0.5;//learning rate
 var backprop = function(ind){
 	var yn = raw[ind + 'y'];
 	var y = format_output(yn, 'xor'); //given in form of network outputs
-	console.log('y',y.transpose().inspect());
-	
+	//console.log('y',y.transpose().inspect());
 	//set deltas
 	
 	//output deltas
 	//del[L+1].elements[j] = 2 * (xv[L+1].e(j+1,0) - y.e(j+1,0)) * (1 - Math.pow(xv[L+1].e(j+1,0), 2));
-	var lastsub = xv[L+1].subtract(y);
+	var lastsub = my_guess[0].subtract(y);
+	console.log('error', lastsub.inspect());
 	var lastcoeff = xv[L+1].map( function(x) {return x*x;} );
 	del[L+1] = lastsub.map( function(x,i,j) {
 		return 2 * x * (1-lastcoeff.e(i, j));
 	});
-	//hidden deltas
 	//console.log('delL+1', del[L+1].transpose().inspect());
+	
+	//hidden deltas
 	_.each(_.range(L), function(sl){
 		var l = L-sl; //going backwards
+		//console.log('lind',l);
 		var s = w[l+1].multiply(del[l+1]); //summation w[l][i][j]*del[l][j]
+		var sem = s.transpose().elements[0];
+		sem.splice(0,1);
+		s = $M([sem]).transpose();
 		var coeff = xv[l].map( function(x) {return x*x;} ); //for the derivative in chain rule
 		var ndel = s.map( function(x, i, j){
+			if(i==1) return;
 			return (1-coeff.e(i,j)) * s.e(i,j); //calculate del[l-1][i]
 		});
+		del[l] = ndel;//remember first one is not used.
 	});
 	
 	//update w
 	_.each(_.range(L+1), function(ind) {
 		var windch = ind+1;
+		//console.log('wupind', windch);
 		var ch = w[windch].map(function(x, i, j) {
-			return lrate * xv[ind].e(i,0) * del[windch].e(j,0);
+			console.log(windch,i,j,del[windch].dimensions());
+			return lrate * xv[ind].e(i,1) * del[windch].e(j,1);
+			//var rt = 0;
+			//???? indexing
+			/*if(windch==L+1){
+				rt = lrate * xv[ind].e(i,1) * del[windch].e(j,1);
+				//console.log(del[windch].e(j,1));
+				return rt;
+			}else{
+				return lrate * xv[ind].e(i,1) * del[windch].e(j+1,1);
+			}*/
 		});
-		//console.log('wdim', ch.dimensions());
+		//console.log('ch',ch.inspect());
 		w[windch] = w[windch].subtract(ch.dup());
+		//console.log('chdim', ch.dimensions());
+		//console.log('wdim', w[windch].dimensions());
 	});
+	//console.log('update_in', del[3].inspect(), w[3].e(1,1));
 }
 
 var xyToScreen = function(pt){
@@ -172,9 +213,11 @@ var setNodePos = function(){
 var drawInOut = function(ind){
 	ctx.font="20px Georgia";
 	ctx.fillStyle="black";
-	var dy = 150;
+	var dy = 130;
 	ctx.fillText("In:   " + raw[ind + 'x'], 30, dy);
 	ctx.fillText("Out: " + raw[ind + 'y'], 30, dy+20);
+	ctx.fillText("Guess: " + my_guess[0].e(1,1), 30, dy+40);
+	ctx.fillText("Iter: " + iter, 30, dy+60);
 }
 //drawing variables
 var drawNode = function(r, col, indj, indl) {
@@ -185,22 +228,28 @@ var drawNode = function(r, col, indj, indl) {
 	ctx.stroke();
 	ctx.closePath();
 	ctx.fillStyle="black";
-	var xvval = Math.round(xv[indl].e(indj+1,1)*100)/100
+	var xvval = xv[indl].e(indj+1,1);
+	//Math.round(xv[indl].e(indj+1,1)*100)/100.0;
 	ctx.fillText("" + xvval, my_pos[0]-15, my_pos[1]+3);
 	if(indl != L+1){
 		var rng = -1;
+		var skp = -1;
 		if(indl==L){
-			rng = outn;
+			_.each(_.range(outn), function(i) {
+			var st = my_pos;
+			var ed = node_pos[indl+1][i];
+			drawAxon(st, ed, indj, i, indl+1);
+			});
 		}else {
-			rng = layer_size[indl]
-		}
-		_.each(_.range(rng), function(i) {
+			_.each(_.range(layer_size[indl]), function(i) {
 			if(i==0) return;
 			
 			var st = my_pos;
 			var ed = node_pos[indl+1][i];
-			drawAxon(st, ed, indj, i, indl+1);
-		});
+			drawAxon(st, ed, indj, i-1, indl+1);
+			});
+		}
+		
 	}
 }
 
@@ -210,13 +259,14 @@ var drawAxon = function(st, ed, indf, indt, indl) {
 	ctx.lineTo(ed[0], ed[1]);
 	ctx.stroke();
 	ctx.fillStyle="black";
-	var wval = Math.round(w[indl].e(indf+1,indt+1)*10)/10;
+	//console.log('axon');
+	//console.log(indf,indt);
+	var wval = w[indl].e(indf+1,indt+1);//Math.round(w[indl].e(indf+1,indt+1)*1000)/1000.0;
 	var mu = 0.3;
 	var tpos = [st[0]+(ed[0]-st[0])*mu,st[1]+(ed[1]-st[1])*mu];
 	ctx.fillText("" + wval, tpos[0], tpos[1]);
 }
 
-setNodePos();
 var drawNetwork = function() {
 	ctx.font="15px Georgia";
 	var ra = 20;
@@ -267,12 +317,16 @@ var tind = 1;
 var update = function() {
 	ctx.fillStyle="#ffffff";
 	ctx.fillRect(0,0,c.width,c.height);
-	drawInOut(tind);
-	drawNetwork();
 	if(auto) {
 		tind = Math.floor(numPts*Math.random());
 		forward(tind);
+		var retf = forward(tind);
+		my_guess[0].elements[0][0] = Math.sign(retf.e(1,1));
+		backprop(tind);
+		iter++;
 	}
+	drawInOut(tind);
+	drawNetwork();
 	//drawNumber(tind);
 	window.requestAnimationFrame(update);
 }
@@ -282,8 +336,11 @@ var clicked = function(e) {
 	var y = -e.offsetY+300;
 	tind = Math.floor(numPts*Math.random());
 	//console.log('tind', tind);
-	forward(tind);
+	var retf = forward(tind);
+	my_guess[0].elements[0][0] = Math.sign(retf.e(1,1));
 	backprop(tind);
+	iter++;
+	//console.log('update_out', w[1].inspect());
 	
 };
 

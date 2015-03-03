@@ -4,7 +4,7 @@ var c = document.getElementById("c");
 var ctx = c.getContext('2d');
 
 var numPts = 1000;
-var goal_w = $V([0,1, -1]);
+var goal_w = $V([Math.random()*10-5,Math.random()*10-5, Math.random()*10-5]);
  
 var xyToScreen = function(pt){
 	return [pt[0] + c.width/2.0, -pt[1] + c.height/2.0];
