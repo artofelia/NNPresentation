@@ -21,7 +21,6 @@ var init_xv = function(){
 		xv.push(Matrix.Random(layer_size[i],1));
 		});
 	xv.push(Matrix.Random(outn,1));
-	
 }
 
 var w = [];
@@ -37,6 +36,15 @@ var init_w = function(){
 	w.push(op);
 }
 
+var del = [];
+//del[a][b] - a=layer;b=neuron in layer, (a starts at 1), del[a] is a matrix as well 
+var init_del = function(){
+	del.push([]);
+	_.each(_.range(L), function(i){
+		del.push(Matrix.Random(layer_size[i]-1,1));
+		});
+	del.push(Matrix.Random(outn,1));
+}
 
 var init_all = function(){
 	console.log('initializing arrays');
@@ -44,6 +52,7 @@ var init_all = function(){
 	//console.log('xv',xv);
 	init_w();
 	//console.log('w',w);
+	init_del();
 }
 
 var set_inputs = function(numstr){
@@ -75,7 +84,6 @@ var forward = function(ind){
 	});
 	return xv[xv.length-1];
 }
-//console.log('op',op.transpose().inspect());
 
 var format_output = function(yn, type) {
 	var res = Matrix.Zero(outn, 1);
@@ -87,22 +95,12 @@ var format_output = function(yn, type) {
 	return res;
 }
 
-var del = [];
-
-//del[a][b] - a=layer;b=neuron in layer, (a starts at 1), del[a] is a matrix as well 
-var init_del = function(){
-	del.push([]);
-	_.each(_.range(L), function(i){
-		del.push(Matrix.Random(layer_size[i]-1,1));
-		});
-	del.push(Matrix.Random(outn,1));
-}
-init_del();
-
 var lrate = 0.1;//learning rate
-var backprop = function(yn){
+var backprop = function(ind){
+	var yn = raw[ind + 'y'];
 	var y = format_output(yn, 'xor'); //given in form of network outputs
-	//console.log('y',y.transpose().inspect());
+	console.log('y',y.transpose().inspect());
+	
 	//set deltas
 	
 	//output deltas
@@ -140,9 +138,8 @@ var xyToScreen = function(pt){
 
 var node_pos = [];
 var setNodePos = function(){
-	console.log('hi');
-	var iposx = 50;
-	var iposy = 50;
+	var iposx = 70;
+	var iposy = 70;
 	var chposx = (c.width-2*iposx)/(L+2);
 	var cposx = iposx;
 	var cposy = iposy+100;
@@ -213,9 +210,10 @@ var drawAxon = function(st, ed, indf, indt, indl) {
 	ctx.lineTo(ed[0], ed[1]);
 	ctx.stroke();
 	ctx.fillStyle="black";
-	var wval = Math.round(w[indl].e(indf+1,indt+1)*100)/100;
-	//var tpos = [st[0]];
-	ctx.fillText("" + wval, st[0], st[1]);
+	var wval = Math.round(w[indl].e(indf+1,indt+1)*10)/10;
+	var mu = 0.3;
+	var tpos = [st[0]+(ed[0]-st[0])*mu,st[1]+(ed[1]-st[1])*mu];
+	ctx.fillText("" + wval, tpos[0], tpos[1]);
 }
 
 setNodePos();
@@ -283,9 +281,9 @@ var clicked = function(e) {
 	var x = e.offsetX-300;
 	var y = -e.offsetY+300;
 	tind = Math.floor(numPts*Math.random());
-	console.log('tind', tind);
+	//console.log('tind', tind);
 	forward(tind);
-	//backprop(raw[tind+'y']);
+	backprop(tind);
 	
 };
 
