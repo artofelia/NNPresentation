@@ -145,6 +145,20 @@ var drawInOut = function(ind){
 	ctx.fillText("Out: " + raw[ind + 'y'],30,70);
 }
 
+var drawNode = function(pos, r, val, col) {
+		ctx.beginPath();
+		ctx.strokeStyle=col;
+		ctx.arc(pos[0],pos[1],r,0,2*Math.PI);
+		ctx.stroke();
+		ctx.closePath();
+		ctx.fillStyle="black";
+		ctx.fillText("" + val, pos[0]-15, pos[1]+3);
+}
+
+var drawAxon = function(st, ed, wval) {
+	
+}
+
 var drawNetwork = function() {
 	ctx.font="15px Georgia";
 	var r = 20;
@@ -157,15 +171,8 @@ var drawNetwork = function() {
 	var chposy = (c.height-2*iposy)/(inn+1);
 	
 	_.each(_.range(inn+1), function(i) {
-		ctx.beginPath();
-		ctx.strokeStyle="blue";
-		ctx.arc(cposx,cposy,r,0,2*Math.PI);
-		ctx.stroke();
-		ctx.closePath();
-		ctx.fillStyle="black";
 		var xvval = Math.round(xv[0].e(i+1,1)*100)/100
-		ctx.fillText("" + xvval,cposx-15,cposy+3);
-		
+		drawNode([cposx, cposy], r, xvval, 'blue');
 		cposy += chposy;
 	});
 	
@@ -175,31 +182,16 @@ var drawNetwork = function() {
 		cposx += chposx;
 		
 		_.each(_.range(layer_size[l]), function(i) {
-			ctx.beginPath();
-			ctx.strokeStyle="green";
-			ctx.arc(cposx,cposy,r,0,2*Math.PI);
-			ctx.stroke();
-			ctx.closePath();
-			ctx.fillStyle="black";
-			//console.log(l+1, i+1, 1, xv[l+1].e(i+1,1));
 			var xvval = Math.round(xv[l+1].e(i+1,1)*100)/100
-			ctx.fillText("" + xvval,cposx-15,cposy+3);
-			
+			drawNode([cposx, cposy], r, xvval, 'green');
 			cposy += chposy;
 		});
 	});
 	cposx += chposx;
 	cposy =((c.height-2*iposy)/(outn));
 	_.each(_.range(outn), function(i) {
-		ctx.beginPath();
-		ctx.strokeStyle="blue";
-		ctx.arc(cposx,cposy,r,0,2*Math.PI);
-		ctx.stroke();
-		ctx.closePath();
-		ctx.fillStyle="black";
 		var xvval = Math.round(xv[L+1].e(i+1,1)*100)/100
-		ctx.fillText("" + xvval,cposx-15,cposy+3);
-		
+		drawNode([cposx, cposy], r, xvval, 'blue');
 		cposy += chposy;
 	});
 	
@@ -227,7 +219,9 @@ var drawNumber = function(ind){
 }
 
 var auto = false;
-b.onclick = function() { auto = !auto; };
+b.onclick = function() {
+	auto = !auto;
+};
 init_all(); //initialize weight, and xv arrays
 var tind = 1;
 
@@ -237,6 +231,7 @@ var update = function() {
 	drawInOut(tind);
 	drawNetwork();
 	if(auto) {
+		tind = Math.floor(numPts*Math.random());
 		forward(tind);
 	}
 	//drawNumber(tind);
