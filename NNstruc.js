@@ -138,61 +138,102 @@ var xyToScreen = function(pt){
 	return [pt[0] + c.width/2.0, -pt[1] + c.height/2.0];
 }
 
-var drawInOut = function(ind){
-	ctx.font="20px Georgia";
-	ctx.fillStyle="black";
-	ctx.fillText("In:   " + raw[ind + 'x'],30,50);
-	ctx.fillText("Out: " + raw[ind + 'y'],30,70);
-}
-
-var drawNode = function(pos, r, val, col) {
-		ctx.beginPath();
-		ctx.strokeStyle=col;
-		ctx.arc(pos[0],pos[1],r,0,2*Math.PI);
-		ctx.stroke();
-		ctx.closePath();
-		ctx.fillStyle="black";
-		ctx.fillText("" + val, pos[0]-15, pos[1]+3);
-}
-
-var drawAxon = function(st, ed, wval) {
-	
-}
-
-var drawNetwork = function() {
-	ctx.font="15px Georgia";
-	var r = 20;
-	var iposx = 100;
-	var iposy = 100;
+var node_pos = [];
+var setNodePos = function(){
+	console.log('hi');
+	var iposx = 50;
+	var iposy = 50;
 	var chposx = (c.width-2*iposx)/(L+2);
-	
 	var cposx = iposx;
 	var cposy = iposy+100;
 	var chposy = (c.height-2*iposy)/(inn+1);
 	
+	node_pos[0] = [];
 	_.each(_.range(inn+1), function(i) {
-		var xvval = Math.round(xv[0].e(i+1,1)*100)/100
-		drawNode([cposx, cposy], r, xvval, 'blue');
+		node_pos[0].push([cposx, cposy]);
 		cposy += chposy;
 	});
-	
 	_.each(_.range(L), function(l) {
 		
 		cposy = iposy+100;
 		cposx += chposx;
-		
+		node_pos[l+1] = [];
 		_.each(_.range(layer_size[l]), function(i) {
-			var xvval = Math.round(xv[l+1].e(i+1,1)*100)/100
-			drawNode([cposx, cposy], r, xvval, 'green');
+			node_pos[l+1].push([cposx, cposy]);
 			cposy += chposy;
 		});
 	});
 	cposx += chposx;
 	cposy =((c.height-2*iposy)/(outn));
+	node_pos[L+1] = [];
 	_.each(_.range(outn), function(i) {
-		var xvval = Math.round(xv[L+1].e(i+1,1)*100)/100
-		drawNode([cposx, cposy], r, xvval, 'blue');
+		node_pos[L+1].push([cposx, cposy]);
 		cposy += chposy;
+	});
+}
+
+var drawInOut = function(ind){
+	ctx.font="20px Georgia";
+	ctx.fillStyle="black";
+	var dy = 150;
+	ctx.fillText("In:   " + raw[ind + 'x'], 30, dy);
+	ctx.fillText("Out: " + raw[ind + 'y'], 30, dy+20);
+}
+//drawing variables
+var drawNode = function(r, col, indj, indl) {
+	ctx.beginPath();
+	ctx.strokeStyle=col;
+	var my_pos = node_pos[indl][indj];
+	ctx.arc(my_pos[0],my_pos[1],r,0,2*Math.PI);
+	ctx.stroke();
+	ctx.closePath();
+	ctx.fillStyle="black";
+	var xvval = Math.round(xv[indl].e(indj+1,1)*100)/100
+	ctx.fillText("" + xvval, my_pos[0]-15, my_pos[1]+3);
+	if(indl != L+1){
+		var rng = -1;
+		if(indl==L){
+			rng = outn;
+		}else {
+			rng = layer_size[indl]
+		}
+		_.each(_.range(rng), function(i) {
+			if(i==0) return;
+			
+			var st = my_pos;
+			var ed = node_pos[indl+1][i];
+			drawAxon(st, ed, indj, i, indl+1);
+		});
+	}
+}
+
+var drawAxon = function(st, ed, indf, indt, indl) {
+	ctx.beginPath();
+	ctx.moveTo(st[0], st[1]);
+	ctx.lineTo(ed[0], ed[1]);
+	ctx.stroke();
+	ctx.fillStyle="black";
+	var wval = Math.round(w[indl].e(indf+1,indt+1)*100)/100;
+	//var tpos = [st[0]];
+	ctx.fillText("" + wval, st[0], st[1]);
+}
+
+setNodePos();
+var drawNetwork = function() {
+	ctx.font="15px Georgia";
+	var ra = 20;
+	
+	_.each(_.range(inn+1), function(i) {
+		drawNode(ra, 'blue', i, 0);
+	});
+	
+	_.each(_.range(L), function(l) {
+		_.each(_.range(layer_size[l]), function(i) {
+			drawNode(ra, 'green', i, l+1);
+		});
+	});
+	_.each(_.range(outn), function(i) {
+		drawNode(ra, 'blue', i, L+1);
 	});
 	
 	
