@@ -13,8 +13,8 @@ var layer_size = [3,3]; //number of nuerons in each hidden layer
 var L = layer_size.length; //number of hidden layers
 var my_guess = [];
 var iter = 0;
-
-//console.log('inn',inn);
+var num_right = 0;
+var per_error = 0;
 
 var xv = []; //value of neurons
 var init_xv = function(){
@@ -124,7 +124,7 @@ var backprop = function(ind){
 	
 	//output deltas//var lastsub = my_guess[0].subtract(y);
 	var lastsub = xv[L+1].subtract(y);
-	console.log('error', lastsub.inspect());
+	//console.log('error', lastsub.inspect());
 	var lastcoeff = xv[L+1].map( function(x) {return x*x;} );
 	del[L+1] = lastsub.map( function(x,i,j) {
 		return 2 * x * (1-lastcoeff.e(i, j));
@@ -140,7 +140,7 @@ var backprop = function(ind){
 		sem.splice(0,1);
 		s = $M([sem]).transpose();
 		var coeff = xv[l].map( function(x) {return x*x;} ); //for the derivative in chain rule
-		console.log('coeff', coeff.inspect());
+		//console.log('coeff', coeff.inspect());
 		var ndel = s.map( function(x, i, j){
 			var nval = (1-coeff.e(i+1,j)) * s.e(i,j);
 			//console.log(coeff.e(i+1,j), s.e(i,j), i, j);
@@ -206,11 +206,12 @@ var setNodePos = function(){
 var drawInOut = function(ind){
 	ctx.font="20px Georgia";
 	ctx.fillStyle="black";
-	var dy = 130;
+	var dy = 50;
 	ctx.fillText("In:   " + raw[ind + 'x'], 30, dy);
 	ctx.fillText("Out: " + raw[ind + 'y'], 30, dy+20);
 	ctx.fillText("Guess: " + my_guess[0].e(1,1), 30, dy+40);
 	ctx.fillText("Iter: " + iter, 30, dy+60);
+	ctx.fillText("Percent Error: " + per_error, 30, dy+80);
 }
 //drawing variables
 var drawNode = function(r, col, indj, indl) {
@@ -307,16 +308,28 @@ b.onclick = function() {
 init_all(); //initialize weight, and xv arrays
 var tind = 1;
 
+var tstep = 1000;
+var step = function(){
+	tind = Math.floor(numPts*Math.random());
+	forward(tind);
+	var retf = forward(tind);
+	my_guess[0].elements[0][0] = Math.sign(retf.e(1,1));
+	backprop(tind);
+	
+	var yn = raw[tind + 'y'];
+	if(my_guess[0].elements[0][0]==yn){
+		num_right++;
+	}
+	console.log(num_right, iter);
+	iter++;
+	per_error = Math.round((1-num_right/parseFloat(iter))*100)/100.0;
+}
+
 var update = function() {
 	ctx.fillStyle="#ffffff";
 	ctx.fillRect(0,0,c.width,c.height);
 	if(auto) {
-		tind = Math.floor(numPts*Math.random());
-		forward(tind);
-		var retf = forward(tind);
-		my_guess[0].elements[0][0] = Math.sign(retf.e(1,1));
-		backprop(tind);
-		iter++;
+		step();
 	}
 	drawInOut(tind);
 	drawNetwork();
@@ -327,14 +340,7 @@ var update = function() {
 var clicked = function(e) {
 	var x = e.offsetX-300;
 	var y = -e.offsetY+300;
-	tind = Math.floor(numPts*Math.random());
-	//console.log('tind', tind);
-	var retf = forward(tind);
-	my_guess[0].elements[0][0] = Math.sign(retf.e(1,1));
-	backprop(tind);
-	iter++;
-	//console.log('update_out', w[1].inspect());
-	
+	step();
 };
 
 c.addEventListener("click",clicked);

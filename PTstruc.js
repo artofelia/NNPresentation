@@ -3,7 +3,7 @@ var b = document.getElementById("b");
 var c = document.getElementById("c");
 var ctx = c.getContext('2d');
 
-var numPts = 5000;
+var numPts = 000;
 var goal_w = $V([Math.random()*10-5,Math.random()*10-5, Math.random()*10-5]);
  
 var xyToScreen = function(pt){
@@ -17,6 +17,7 @@ var generatePoints = function(num){
 		var xv = Math.random()*c.width;
 	}
 }
+
 var xp = _.map(_.range(numPts),
 	function(ind) {
 		return $V([1, Math.random()*c.width - c.width/2, Math.random()*c.height - c.height/2]);
