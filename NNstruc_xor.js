@@ -253,8 +253,6 @@ var drawAxon = function(st, ed, indf, indt, indl) {
 	ctx.lineTo(ed[0], ed[1]);
 	ctx.stroke();
 	ctx.fillStyle="black";
-	//console.log('axon');
-	//console.log(indf,indt);
 	var wval = Math.round(w[indl].e(indf+1,indt+1)*1000)/1000.0;
 	var mu = 0.3;
 	var tpos = [st[0]+(ed[0]-st[0])*mu,st[1]+(ed[1]-st[1])*mu];
