@@ -115,16 +115,15 @@ var format_output = function(yn, type) {
 	return res;
 }
 
-var lrate = 0.5;//learning rate
+var lrate = 0.1;//learning rate
 var backprop = function(ind){
 	var yn = raw[ind + 'y'];
 	var y = format_output(yn, 'xor'); //given in form of network outputs
 	//console.log('y',y.transpose().inspect());
 	//set deltas
 	
-	//output deltas
-	//del[L+1].elements[j] = 2 * (xv[L+1].e(j+1,0) - y.e(j+1,0)) * (1 - Math.pow(xv[L+1].e(j+1,0), 2));
-	var lastsub = my_guess[0].subtract(y);
+	//output deltas//var lastsub = my_guess[0].subtract(y);
+	var lastsub = xv[L+1].subtract(y);
 	console.log('error', lastsub.inspect());
 	var lastcoeff = xv[L+1].map( function(x) {return x*x;} );
 	del[L+1] = lastsub.map( function(x,i,j) {
@@ -141,10 +140,14 @@ var backprop = function(ind){
 		sem.splice(0,1);
 		s = $M([sem]).transpose();
 		var coeff = xv[l].map( function(x) {return x*x;} ); //for the derivative in chain rule
+		console.log('coeff', coeff.inspect());
 		var ndel = s.map( function(x, i, j){
-			if(i==1) return;
-			return (1-coeff.e(i,j)) * s.e(i,j); //calculate del[l-1][i]
+			var nval = (1-coeff.e(i+1,j)) * s.e(i,j);
+			//console.log(coeff.e(i+1,j), s.e(i,j), i, j);
+			return nval; //calculate del[l-1][i]
 		});
+		//console.log('s', s.inspect());
+		//console.log('ndel', ndel.inspect());
 		del[l] = ndel;//remember first one is not used.
 	});
 	
@@ -153,8 +156,8 @@ var backprop = function(ind){
 		var windch = ind+1;
 		//console.log('wupind', windch);
 		var ch = w[windch].map(function(x, i, j) {
-			console.log(windch,i,j,del[windch].dimensions());
-			return lrate * xv[ind].e(i,1) * del[windch].e(j,1);
+			//console.log(windch,i,j,del[windch].dimensions());
+			return lrate * xv[windch-1].e(i,1) * del[windch].e(j,1);
 			//var rt = 0;
 			//???? indexing
 			/*if(windch==L+1){
@@ -228,8 +231,8 @@ var drawNode = function(r, col, indj, indl) {
 	ctx.stroke();
 	ctx.closePath();
 	ctx.fillStyle="black";
-	var xvval = xv[indl].e(indj+1,1);
-	//Math.round(xv[indl].e(indj+1,1)*100)/100.0;
+	//var xvval = xv[indl].e(indj+1,1);
+	var xvval = Math.round(xv[indl].e(indj+1,1)*100)/100.0;
 	ctx.fillText("" + xvval, my_pos[0]-15, my_pos[1]+3);
 	if(indl != L+1){
 		var rng = -1;
@@ -261,7 +264,7 @@ var drawAxon = function(st, ed, indf, indt, indl) {
 	ctx.fillStyle="black";
 	//console.log('axon');
 	//console.log(indf,indt);
-	var wval = w[indl].e(indf+1,indt+1);//Math.round(w[indl].e(indf+1,indt+1)*1000)/1000.0;
+	var wval = Math.round(w[indl].e(indf+1,indt+1)*1000)/1000.0;
 	var mu = 0.3;
 	var tpos = [st[0]+(ed[0]-st[0])*mu,st[1]+(ed[1]-st[1])*mu];
 	ctx.fillText("" + wval, tpos[0], tpos[1]);
