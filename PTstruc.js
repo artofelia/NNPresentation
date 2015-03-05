@@ -3,7 +3,7 @@ var b = document.getElementById("b");
 var c = document.getElementById("c");
 var ctx = c.getContext('2d');
 
-var numPts = 000;
+var numPts = 500;
 var goal_w = $V([Math.random()*10-5,Math.random()*10-5, Math.random()*10-5]);
  
 var xyToScreen = function(pt){

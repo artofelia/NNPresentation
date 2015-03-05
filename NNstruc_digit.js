@@ -9,7 +9,7 @@ var numPts = (Object.keys(raw).length-1)/2;
 var row_sz = raw['rowsz']; //pixels in row of image
 var inn = raw['0x'].length; //number of pixels in image
 var outn = 10; //number of outputs
-var layer_size = [100,25]; //number of nuerons in each hidden layer
+var layer_size = [10*10, 10*10]; //number of nuerons in each hidden layer
 var L = layer_size.length; //number of hidden layers
 var my_guess = -1;
 var iter = 0;
@@ -29,10 +29,10 @@ var w = [];
 //matrix of weights between each layers of neurons
 var init_w = function(){
 	w.push([]);//index should start at 1
-	var inp = Matrix.Random(inn+1, layer_size[0]-1).x(0.01);
+	var inp = Matrix.Random(inn+1, layer_size[0]-1).x(0.0001);
 	w.push(inp);
 	var hidden = _.each(_.range(L-1), function(i) {
-		w.push(Matrix.Random(layer_size[i], layer_size[i+1]-1).x(0.01));
+		w.push(Matrix.Random(layer_size[i], layer_size[i+1]-1).x(0.0001));
 	});
 	var op = Matrix.Random(layer_size[L-1], outn);
 	w.push(op);
@@ -108,6 +108,7 @@ var forward = function(ind){
 var format_output = function(yn, type) {
 	var res = Matrix.Zero(outn, 1);
 	if(type=='digit'){
+		res = res.map(function(){return -1;});
 		res.elements[yn][0] = 1;
 	}else if(type=='xor'){
 		res.elements[0][0] = yn;
@@ -115,7 +116,9 @@ var format_output = function(yn, type) {
 	return res;
 }
 
-var lrate = 1.5;//learning rate
+var lrate = 0.1;//learning rate
+var start = new Date().getTime();
+var end = -1;
 var backprop = function(ind){
 	var yn = raw[ind + 'y'];
 	var y = format_output(yn, 'digit'); //given in form of network outputs
@@ -124,12 +127,13 @@ var backprop = function(ind){
 	
 	//output deltas
 	var lastsub = xv[L+1].subtract(y);
-	//console.log('error', lastsub.inspect());
+	console.log('error,lastsub', lastsub.transpose().inspect());
 	var lastcoeff = xv[L+1].map( function(x) {return x*x;} );
+	console.log('lastcoeff', lastcoeff.transpose().inspect());
 	del[L+1] = lastsub.map( function(x,i,j) {
 		return 2 * x * (1-lastcoeff.e(i, j));
 	});
-	//console.log('delL+1', del[L+1].transpose().inspect());
+	console.log('delL+1', del[L+1].transpose().inspect());
 	
 	//hidden deltas
 	_.each(_.range(L), function(sl){
@@ -148,18 +152,20 @@ var backprop = function(ind){
 		});
 		//console.log('s', s.inspect());
 		//console.log('ndel', ndel.inspect());
-		del[l] = ndel;//remember first one is not used.
+		del[l] = ndel.dup();//remember first one is not used.
+		//end = new Date().getMilliseconds();
+		//console.log('hiddendeltime: ' + (end-start));
 	});
-	
+
 	//update w
 	_.each(_.range(L+1), function(ind) {
+		//start = new Date().getMilliseconds();
 		var windch = ind+1;
 		//console.log('wupind', windch);
-		var ch = w[windch].map(function(x, i, j) {
-			return lrate * xv[windch-1].e(i,1) * del[windch].e(j,1);
-		});
-		//console.log('ch',ch.inspect());
+		var ch = xv[windch-1].multiply(del[windch].transpose()).x(lrate);
 		w[windch] = w[windch].subtract(ch.dup());
+		//end = new Date().getMilliseconds();
+		//console.log('bfmap_hiddendeltime: ' + (end-start));
 		//console.log('chdim', ch.e(1,1));
 		//console.log('wdim', w[windch].dimensions());
 	});
@@ -278,6 +284,7 @@ init_all(); //initialize weight, and xv arrays
 var tind = 1;
 
 var get_guess = function(outp) {
+	console.log(outp);
 	var maxi = -1;
 	var mx = -1000;
 	_.each(_.range(outp.length), function(i) {
@@ -291,9 +298,13 @@ var get_guess = function(outp) {
 var step = function(){
 	tind = Math.floor(numPts*Math.random());
 	forward(tind);
+	
 	var retf = forward(tind);
 	my_guess = get_guess(retf.transpose().elements[0]);
+	//start = new Date().getMilliseconds();
 	backprop(tind);
+	//end = new Date().getMilliseconds();
+	//console.log('tbacktime', (end-start));
 	var yn = raw[tind + 'y'];
 	if(my_guess==yn){
 		num_right++;
@@ -312,7 +323,7 @@ var update = function() {
 	//drawNetwork();
 	drawNumber(tind);
 	drawRep(1, 150, 150, 10);
-	drawRep(2, 300, 150, 20);
+	drawRep(2, 300, 150, 10);
 	window.requestAnimationFrame(update);
 }
 
