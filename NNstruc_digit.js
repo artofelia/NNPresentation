@@ -7,9 +7,10 @@ var ictx = ic.getContext('2d');
 
 var numPts = (Object.keys(raw).length-1)/2;
 var row_sz = raw['rowsz']; //pixels in row of image
-var inn = raw['0x'].length; //number of pixels in image
+var nrow_sz = 25;
+var inn = nrow_sz*nrow_sz;//raw['0x'].length; //number of pixels in image
 var outn = 10; //number of outputs
-var layer_size = [10*10, 10*10]; //number of nuerons in each hidden layer
+var layer_size = [5*5]; //number of nuerons in each hidden layer
 var L = layer_size.length; //number of hidden layers
 var my_guess = -1;
 var iter = 0;
@@ -29,23 +30,14 @@ var w = [];
 //matrix of weights between each layers of neurons
 var init_w = function(){
 	w.push([]);//index should start at 1
-	var inp = Matrix.Random(inn+1, layer_size[0]-1).x(0.0001);
+	var inp = Matrix.Random(inn+1, layer_size[0]-1).x(0.1);
 	w.push(inp);
 	var hidden = _.each(_.range(L-1), function(i) {
-		w.push(Matrix.Random(layer_size[i], layer_size[i+1]-1).x(0.0001));
+		w.push(Matrix.Random(layer_size[i], layer_size[i+1]-1).x(1.0));
 	});
 	var op = Matrix.Random(layer_size[L-1], outn);
 	w.push(op);
-}
-
-var init_w_xor = function() {
-	w.push([]);
-	var M = $M([[-1.5, -1.5],
-				[1, -1],
-				[-1, 1]]);
-	w.push(M);
-	M = $M([[1.5],[1],[1]]);
-	w.push(M);
+	console.log('initw', w[1].inspect());
 }
 
 var del = [];
@@ -70,15 +62,32 @@ var init_all = function(){
 
 var set_inputs = function(numstr, type){
 	xv[0].elements[0][0] = 1;
-	if(type=='digit'){
-		_.each(_.range(numstr.length), function(i) {
-			xv[0].elements[i+1][0] = parseInt(numstr[i])*2-1;
-		});
-	}else if(type=='xor'){
-		_.each(_.range(numstr.length), function(i) {
-			xv[0].elements[i+1][0] = parseInt(numstr[i])*2-1;
-		});
+	_.each(_.range(numstr.length), function(i) {
+		xv[0].elements[i+1][0] = parseInt(numstr[i])*2-1;
+	});
+	xv[0] = scale_matrix(xv[0], nrow_sz, nrow_sz);
+}
+
+var scale_matrix = function(nmat, r, c){
+	var nmat = Matrix.Zero(r,c);
+	var or = parseFloat(row_sz);
+	var oc = parseFloat(row_sz);
+	nmat = nmat.map(function(x, ind, un){
+		var i = Math.floor(ind/oc);
+		var j = Math.floor(ind - oc*i);
+		return numstr[Math.floor(i * or/r)*row_sz + Math.floor(j * oc/c)];  
+	});
+	return nmat;
+}
+
+var my_tanh = function(x) {
+	if(x>=3){
+		return 1;
+	}else if(x<=-3){
+		return -1;
 	}
+	return Math.tanh(x);
+
 }
 
 var forward = function(ind){
@@ -92,7 +101,7 @@ var forward = function(ind){
 		//console.log('s',s.inspect());
 		//console.log('xvs',l-1,xv[l-1].transpose().inspect());
 		var theta = s.map( function(x, i, j) {
-			return Math.tanh(x); //has max performance limit
+			return my_tanh(x); //has max performance limit
 		});
 		//console.log('sb', l, xv[l-1].inspect());
 		//console.log('s', l, s.inspect());
@@ -151,25 +160,26 @@ var backprop = function(ind){
 			return nval; //calculate del[l-1][i]
 		});
 		//console.log('s', s.inspect());
-		//console.log('ndel', ndel.inspect());
+		console.log('ndel', ndel.transpose().inspect());
 		del[l] = ndel.dup();//remember first one is not used.
 		//end = new Date().getMilliseconds();
 		//console.log('hiddendeltime: ' + (end-start));
 	});
 
 	//update w
+	console.log('bfw', w[2].inspect());
 	_.each(_.range(L+1), function(ind) {
 		//start = new Date().getMilliseconds();
 		var windch = ind+1;
 		//console.log('wupind', windch);
 		var ch = xv[windch-1].multiply(del[windch].transpose()).x(lrate);
-		w[windch] = w[windch].subtract(ch.dup());
+		w[windch] = w[windch].subtract(ch);
 		//end = new Date().getMilliseconds();
 		//console.log('bfmap_hiddendeltime: ' + (end-start));
 		//console.log('chdim', ch.e(1,1));
-		//console.log('wdim', w[windch].dimensions());
 	});
-	//console.log('update_in', del[3].inspect(), w[3].e(1,1));
+	console.log('w', w[2].inspect());
+	//console.log('del2', del[2].transpose().inspect());
 }
 
 var xyToScreen = function(pt){
@@ -322,8 +332,8 @@ var update = function() {
 	drawInOut(tind);
 	//drawNetwork();
 	drawNumber(tind);
-	drawRep(1, 150, 150, 10);
-	drawRep(2, 300, 150, 10);
+	drawRep(1, 150, 150, 20);
+	//drawRep(2, 300, 150, 10);
 	window.requestAnimationFrame(update);
 }
 
